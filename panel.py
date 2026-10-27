@@ -34,7 +34,7 @@ MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 # a long run; the Groq SDK honours the retry-after header, so raising this simply
 # waits out the window instead of failing the whole run.
 def _llm(temperature: float = 0.4) -> ChatGroq:
-    return ChatGroq(model=MODEL, temperature=temperature, max_retries=8)
+    return ChatGroq(model=MODEL, temperature=temperature, max_retries=8, max_tokens=8000)
 
 
 class State(TypedDict):
@@ -81,7 +81,8 @@ def _debate(state: State) -> dict:
     # Each shark reacts to the OTHER sharks' round-1 takes — never its own, so it
     # isn't arguing with itself.
     return {"final": [
-        _evaluate(s, state["pitch"], _format([v for v in state["round1"] if v.shark != s.name]))
+        _evaluate(s, state["pitch"], _format(
+            [v for v in state["round1"] if v.shark != s.name]))
         for s in SHARKS
     ]}
 
