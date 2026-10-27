@@ -1,0 +1,18 @@
+TiffinAI — home-cooked meals, personalised by AI.
+
+The problem: 40 million urban Indians eat lunch out every workday, and most of it is
+oily, repetitive, and unhealthy. Home-style tiffin services exist, but they send the same
+fixed menu to everyone and have terrible retention.
+
+Our solution: TiffinAI is a daily tiffin subscription where an AI plans each customer's
+meals around their health goals, allergies, and taste feedback, then routes orders to a
+network of vetted home chefs in their neighbourhood. Every meal is home-cooked, tuned to
+you, and cheaper than eating out.
+
+Traction: 1,200 active subscribers across Pune and Bengaluru, growing 22% month on month.
+Average revenue per user is Rs 4,500/month at a 28% gross margin. Customer acquisition cost
+is Rs 900 and we're seeing 6-month retention of 55%. We have 180 home chefs onboarded.
+
+The ask: we're raising Rs 4 crore for 8% to expand to four more cities, build the chef app,
+and improve the recommendation engine. The Indian food-tech market is worth 50 billion dollars
+and growing 25% a year.
