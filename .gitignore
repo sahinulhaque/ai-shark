@@ -21,6 +21,11 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+DEPLOYMENT.md
+PRODUCTION_READINESS.md
+docs/
+.streamlit/
+requirements-dev.txt
 
 # Runtime artifacts
 *.log

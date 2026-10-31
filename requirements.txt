@@ -8,4 +8,7 @@ langchain-groq==1.1.3
 groq==0.37.1
 pydantic==2.13.5
 python-dotenv==1.2.3
-streamlit==1.63.0
+streamlit==1.66.1
+# Pin Streamlit's Pillow dependency to a release without the advisories found
+# by pip-audit for Pillow 12.3.0.
+pillow==13.0.0
