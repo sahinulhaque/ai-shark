@@ -17,6 +17,7 @@ Page structure
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import secrets
@@ -40,6 +41,14 @@ from abuse_controls import (
 )
 from panel import run_panel
 from sharks import SHARKS
+from logger import AISharkLogger, SUCCESS
+
+_log = AISharkLogger("ai_shark.app")
+_log.configure_logging()
+if not getattr(logging, "_ai_shark_app_initialized", False):
+    _log.event("Application initialized", SUCCESS,
+               stage="application", outcome="ready")
+    setattr(logging, "_ai_shark_app_initialized", True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "sample_pitch.txt"), "r", encoding="utf-8") as f:
@@ -50,7 +59,7 @@ GITHUB_URL = "https://github.com/sahinulhaque/ai-shark"
 # TODO: replace this placeholder with your real "Hire me" destination before
 # you publish. Any link works: a contact form, a booking page, your Upwork or
 # LinkedIn profile, or "mailto:you@example.com".
-HIRE_ME_URL = "https://example.com/hire-me"
+HIRE_ME_URL = ""
 _HIRE_HREF = escape(HIRE_ME_URL, quote=True)
 
 st.set_page_config(
@@ -268,6 +277,21 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
   animation: reveal .4s ease-out both;
 }
 .host-title { font-family: var(--display); font-weight: 700; font-size: 1.2rem; letter-spacing: -.01em; color: var(--ink); margin: .15rem 0 .35rem; }
+.st-key-actionable-takeaway {
+  width: 100%; min-width: 0; box-sizing: border-box;
+  margin-top: 1rem; padding: .95rem 1.05rem;
+  background: var(--sea-soft); border: 1px solid #c4e3e5;
+  border-left: 4px solid var(--sea); border-radius: 12px;
+}
+.takeaway-heading {
+  margin: 0 0 .4rem; color: var(--sea-dark);
+  font-size: .78rem; line-height: 1.35; font-weight: 700;
+  letter-spacing: .055em;
+}
+.st-key-actionable-takeaway [data-testid="stMarkdownContainer"] {
+  color: var(--ink); font-size: .96rem; line-height: 1.6;
+}
+.st-key-actionable-takeaway [data-testid="stMarkdownContainer"] p { margin: 0; }
 
 /* ---------- Hire card ---------- */
 .st-key-hire-rail {
@@ -413,6 +437,8 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 }
 @media (max-width: 640px) {
   [data-testid="stMainBlockContainer"] { padding: 1rem 1rem 3rem; }
+  .st-key-actionable-takeaway { margin-top: .85rem; padding: .85rem .9rem; }
+  .st-key-actionable-takeaway [data-testid="stMarkdownContainer"] { font-size: .94rem; }
   .nav-links a:not(.nav-cta) { display: none; }
   .brand-role { display: none; }
   .panel-grid, .flow, .eng { grid-template-columns: 1fr; }
@@ -447,6 +473,34 @@ def _anchor(anchor: str) -> None:
 def _text(value: str) -> str:
     """Escape model or persona text for use inside an HTML fragment."""
     return escape(value).replace("\r", "").replace("\n", "<br>")
+
+
+def _split_actionable_takeaway(summary: str) -> tuple[str, str | None]:
+    """Separate a labeled takeaway paragraph while preserving its wording."""
+    marker = re.search(
+        r"(?i)(?:\*\*|__)?Actionable takeaway:(?:\*\*|__)?[ \t]*", summary
+    )
+    if marker is None:
+        return summary, None
+
+    following = summary[marker.end():].lstrip(" \t\r\n")
+    paragraph_break = re.search(r"\n[ \t]*\n", following)
+    if paragraph_break:
+        recommendation = following[:paragraph_break.start()].strip()
+        remainder = following[paragraph_break.end():]
+    else:
+        recommendation = following.strip()
+        remainder = ""
+
+    if not recommendation:
+        return summary, None
+
+    before = summary[:marker.start()]
+    if before.strip() and remainder.strip():
+        main_summary = f"{before.rstrip()}\n\n{remainder.lstrip()}"
+    else:
+        main_summary = (before + remainder).strip()
+    return main_summary, recommendation
 
 
 st.session_state.setdefault("_review_running", False)
@@ -597,6 +651,9 @@ with left:
     # -------------------------------------------------------------------------
     if st.session_state["_review_requested"]:
         st.session_state["_review_requested"] = False
+        _log.event("Review submitted", stage="review", outcome="accepted")
+        review_succeeded = False
+        failure_category = "UnknownError"
         try:
             validate_pitch(pitch)
             validate_provider_config()
@@ -608,13 +665,20 @@ with left:
             check_pitch_rate_limit(client_key)
             with st.spinner("The panel is thinking across three investor lenses…"):
                 st.session_state["_review_result"] = run_panel(pitch)
+            review_succeeded = True
+            _log.event("Review completed", SUCCESS,
+                       stage="review", outcome="success")
         except (ProviderConfigurationError, ProviderRequestError, ModelOutputError) as exc:
+            failure_category = type(exc).__name__
             st.session_state["_review_notice"] = ("error", str(exc))
         except PitchTooLongError as exc:
+            failure_category = type(exc).__name__
             st.session_state["_review_notice"] = ("error", str(exc))
         except ValueError as exc:
+            failure_category = type(exc).__name__
             st.session_state["_review_notice"] = ("error", str(exc))
         except RateLimitExceededError as exc:
+            failure_category = type(exc).__name__
             window = (
                 f"{PITCH_RATE_LIMIT_WINDOW_SECONDS // 60} minutes"
                 if PITCH_RATE_LIMIT_WINDOW_SECONDS >= 60
@@ -626,14 +690,19 @@ with left:
                 f"Current limit: {PITCH_RATE_LIMIT_REQUESTS} submissions per {window}.",
             )
         except PanelBusyError:
+            failure_category = "PanelBusyError"
             st.session_state["_review_notice"] = (
                 "info", "The review panel is busy. Please try again shortly."
             )
         except Exception:
+            failure_category = "UnexpectedError"
             st.session_state["_review_notice"] = (
                 "error", "The review could not be completed. Please try again."
             )
         finally:
+            if not review_succeeded:
+                _log.exception("Review failed", failure_category, stage="review",
+                               outcome="failure")
             st.session_state["_review_running"] = False
         st.rerun()
 
@@ -710,7 +779,12 @@ with left:
                 '<div class="vlabel">Host summary</div>'
                 '<div class="host-title">Where the panel agrees, and where it doesn’t</div>'
             )
-            st.write(str(result["summary"]).replace("$", r"\$"))
+            main_summary, takeaway = _split_actionable_takeaway(str(result["summary"]))
+            st.write(main_summary.replace("$", r"\$"))
+            if takeaway is not None:
+                with st.container(key="actionable-takeaway"):
+                    _html('<div class="takeaway-heading">✦ ACTIONABLE TAKEAWAY</div>')
+                    st.write(takeaway.replace("$", r"\$"))
 
 with right:
     with st.container(key="hire-rail"):
