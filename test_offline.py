@@ -442,6 +442,27 @@ def main():
               len(app.exception) == 0)
         check("Streamlit UI discloses Groq pitch processing", any(
             "sent to Groq" in block.value for block in app.markdown))
+
+        with open(os.path.join(HERE, "sample_pitch.txt"), encoding="utf-8") as f:
+            default_pitch = f.read()
+        check("sample selector defaults to the TiffinAI pitch",
+              app.text_area[0].value == default_pitch)
+        sample_pitches = (
+            ("FleetShift", os.path.join("sample_pitches", "fleetshift.txt")),
+            ("VibeVerse", os.path.join("sample_pitches", "vibeverse.txt")),
+            ("GharSolar", os.path.join("sample_pitches", "gharsolar.txt")),
+            ("TiffinAI", "sample_pitch.txt"),
+        )
+        check("sample selector is rendered",
+              len(app.get("segmented_control")) == 1)
+        for sample_name, sample_path in sample_pitches:
+            with open(os.path.join(HERE, sample_path), encoding="utf-8") as f:
+                expected_pitch = f.read()
+            app.get("segmented_control")[0].set_value(sample_name)
+            app.run()
+            check(f"sample selector loads {sample_name} into the pitch field",
+                  app.text_area[0].value == expected_pitch)
+
         app.button[0].click()
         app.run()
         check("UI shows a safe missing-key error", len(app.exception) == 0 and any(

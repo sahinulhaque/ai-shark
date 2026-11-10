@@ -53,14 +53,16 @@ if not getattr(logging, "_ai_shark_app_initialized", False):
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "sample_pitch.txt"), "r", encoding="utf-8") as f:
     SAMPLE = f.read()
+SAMPLE_PITCHES = {"TiffinAI": SAMPLE}
+for sample_name, sample_file in (
+    ("FleetShift", "fleetshift.txt"),
+    ("VibeVerse", "vibeverse.txt"),
+    ("GharSolar", "gharsolar.txt"),
+):
+    with open(os.path.join(HERE, "sample_pitches", sample_file), "r", encoding="utf-8") as f:
+        SAMPLE_PITCHES[sample_name] = f.read()
 
 GITHUB_URL = "https://github.com/sahinulhaque/ai-shark"
-
-# TODO: replace this placeholder with your real "Hire me" destination before
-# you publish. Any link works: a contact form, a booking page, your Upwork or
-# LinkedIn profile, or "mailto:you@example.com".
-HIRE_ME_URL = ""
-_HIRE_HREF = escape(HIRE_ME_URL, quote=True)
 
 st.set_page_config(
     page_title="Sahinul Haque | AI & Agentic AI Developer",
@@ -145,11 +147,6 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
   text-decoration: none !important;
 }
 .stApp .nav-links a:hover { color: var(--sea-dark) !important; }
-.stApp .nav-links a.nav-cta {
-  background: var(--deep); color: #fff !important; font-weight: 600;
-  padding: .55rem 1.05rem; border-radius: 999px;
-}
-.stApp .nav-links a.nav-cta:hover { background: var(--sea-dark); }
 
 /* ---------- Hero copy ---------- */
 .hero { padding: .2rem 0 .4rem; max-width: 720px; }
@@ -418,6 +415,14 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 
 /* ---------- Motion: only results appear with a short reveal ---------- */
 @keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes sample-picker-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.st-key-sample-picker {
+  animation: sample-picker-in .24s ease-out both;
+  margin-bottom: -.75rem;
+}
+.st-key-sample-picker button { transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease; }
+.st-key-sample-picker button:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(10, 37, 64, .10); }
+.st-key-sample-picker button:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
@@ -439,7 +444,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
   [data-testid="stMainBlockContainer"] { padding: 1rem 1rem 3rem; }
   .st-key-actionable-takeaway { margin-top: .85rem; padding: .85rem .9rem; }
   .st-key-actionable-takeaway [data-testid="stMarkdownContainer"] { font-size: .94rem; }
-  .nav-links a:not(.nav-cta) { display: none; }
+  .nav-links { display: none; }
   .brand-role { display: none; }
   .panel-grid, .flow, .eng { grid-template-columns: 1fr; }
   .tool-help { flex-direction: column; gap: .2rem; }
@@ -517,6 +522,13 @@ def _request_review() -> None:
     st.session_state["_review_notice"] = None
 
 
+def _load_sample_pitch() -> None:
+    """Copy the chosen example into the editable pitch field."""
+    sample_name = st.session_state.get("_sample_pitch_choice")
+    if sample_name in SAMPLE_PITCHES:
+        st.session_state["pitch_input"] = SAMPLE_PITCHES[sample_name]
+
+
 # Presentation metadata lives here so sharks.py stays the single source of truth
 # for names, titles and prompts while the page can add plain-language copy.
 SHARK_PRESENTATION = {
@@ -571,7 +583,6 @@ _html(
         <a href="#demo">Live demo</a>
         <a href="#panel">The panel</a>
         <a href="#services">Services</a>
-        <a class="nav-cta" href="{_HIRE_HREF}">Hire me</a>
       </div>
     </div>
     """
@@ -605,8 +616,8 @@ with left:
                 <span class="live-badge"><span class="live-dot"></span>Live demo, running the real workflow</span>
                 <div class="tool-title">Run the AI-Shark panel</div>
                 <div class="tool-sub">
-                  Include the customer problem, solution, market, business model, traction and funding ask
-                  for the strongest result.
+                  Choose a sample pitch below or paste your own. Include the problem, solution, market,
+                  business model, traction and funding ask for the strongest result.
                 </div>
               </div>
               <div class="tool-facts">
@@ -620,10 +631,20 @@ with left:
             '<div class="privacy-note">Your pitch and the panel responses are sent to Groq '
             "for analysis. Do not submit confidential or sensitive information.</div>"
         )
+        with st.container(key="sample-picker"):
+            st.segmented_control(
+                "Load a sample pitch",
+                options=list(SAMPLE_PITCHES),
+                default="TiffinAI",
+                key="_sample_pitch_choice",
+                on_change=_load_sample_pitch,
+                label_visibility="collapsed",
+                width="stretch",
+            )
         pitch = st.text_area(
             "Pitch details",
             value=SAMPLE,
-            height=260,
+            height=220,
             key="pitch_input",
             label_visibility="collapsed",
             placeholder="Describe the customer problem, solution, market, business model, traction and funding ask.",
@@ -808,8 +829,6 @@ with right:
             + "".join(f"<div><b>✓</b><span>{_text(title)}</span></div>" for title, _ in SERVICES)
             + "</div>"
         )
-        st.link_button("Hire me for an AI project", HIRE_ME_URL,
-                       type="primary", width="stretch")
         st.link_button("See the source on GitHub", GITHUB_URL, width="stretch")
         _html(
             '<div class="rail-label">Toolkit</div><div class="chips">'
@@ -945,10 +964,7 @@ with st.container(key="final-cta"):
         </p>
         """
     )
-    cta_primary, cta_secondary, _spacer = st.columns([1, 1, 1.2], gap="small")
-    with cta_primary:
-        st.link_button("Hire me for an AI project", HIRE_ME_URL,
-                       type="primary", width="stretch")
+    cta_secondary, _spacer = st.columns([1, 2.2], gap="small")
     with cta_secondary:
         st.link_button("See the source on GitHub", GITHUB_URL, width="stretch")
 
